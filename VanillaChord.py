@@ -14,17 +14,17 @@ class Chord_Node(): # will super() this once Koorde is done..
         # bits to represent key-space
         self.m = m 
         # size of key-space
-        self.q = 2**m 
+        self.q = 2**self.m 
         # Set the identifer to be a number modulo 2^m (keyspace's modular interval)
-        self.ID = ID % 2**m 
+        self.ID = ID % 2**self.m 
         
         # Initialize Finger Table
         start, end = self.ID+1,self.ID+2
         # Leave 'finger' entry unfilled until init_finger_table call
-        self.FingerTable = {'start':[start], 'interval':[(start,end)], 'finger':[]}
+        self.FingerTable = {'start':[start], 'interval':[(start,end)], 'finger':[None]*m}
         # Initialize predecessor to NIL
         self.predecessor = None
-        for i in range(1, m, 1):
+        for i in range(1, self.m, 1):
             # To be consistent with the paper,
             # we keep both start and interval: (start,end) entries
             start = self.FingerTable['interval'][i-1][-1]
@@ -34,7 +34,7 @@ class Chord_Node(): # will super() this once Koorde is done..
             
         return
     
-    def check_mod_interval(x, init, end, left_open=True, right_open=True):
+    def check_mod_interval(self, x, init, end, left_open=True, right_open=True):
         # Check the modular rotation for each case
         if right_open and not left_open:
             # 1 if in the interval [init, end) and 0 otherwise
@@ -60,24 +60,32 @@ class Chord_Node(): # will super() this once Koorde is done..
     
     def find_pred(self, ID):
         n_prime = self
-        while(not check_mod_interval(x, n_prime.ID,\
+        while not self.check_mod_interval( ID, n_prime.ID,\
                                      n_prime.successor().ID, \
-                                     left_open=True, right_open=False)):
+                                     left_open=True, right_open=False ):
+            # Keep searching
             n_prime = n_prime.closest_preceeding_finger(ID)
         return n_prime
     
     def closest_preceeding_finger(self, ID):
-        for i in range(m-1, -1, -1):
-            if check_mod_interval(self.FingerTable['finger'].ID,\
+        '''
+        Find closest finger with identifier preceding ID
+        '''
+        for i in range(self.m-1, -1, -1):
+            if self.check_mod_interval(self.FingerTable['finger'][i].ID,\
                                   self.ID, ID, \
                                   left_open=True, right_open=True):
-                return self.FingerTable['finger']
+                return self.FingerTable['finger'][i]
             return self
     
     def join(self, n_prime):
-        
+        '''
+        Adding a new Node to the DHT by reference to n_prime
+        '''
         if n_prime != self:
             self.init_finger_table(n_prime)
+            
+            # This needs to be implemented for the code to work properly...
             self.update_others()
         else:
             for i in range(self.m):
@@ -88,7 +96,7 @@ class Chord_Node(): # will super() this once Koorde is done..
     
     def init_finger_table(self, n_prime):
         # Resetting successor and predecessor pointers as needed
-        self.FingerTable['finger'][0] = n_succ = n_prime.find_succ(self.FingerTable['start'])
+        self.FingerTable['finger'][0] = n_succ = n_prime.find_succ(self.FingerTable['start'][0])
         self.predecessor = n_succ.predecessor
         n_succ.predecessor = n_succ.FingerTable['finger'][0] = self
         
@@ -106,7 +114,7 @@ class Chord_Node(): # will super() this once Koorde is done..
         return
     
     def update_finger_table(self, z, i):
-        if check_mod_interval(z.ID, self.ID, self.FingerTable['finger'][i].ID,\
+        if self.check_mod_interval(z.ID, self.ID, self.FingerTable['finger'][i].ID,\
                                      left_open=True, right_open=False):
             self.FingerTable['finger'][i] = z
             p = self.predecessor
@@ -115,14 +123,14 @@ class Chord_Node(): # will super() this once Koorde is done..
     
     def notify(self, n_prime):
         pID = self.predecessor.ID
-        if self.predecessor is None or check_mod_interval(n_prime.ID, pID, self.ID, \
-                                     left_open=True, right_open=True)
+        if self.predecessor is None or self.check_mod_interval(n_prime.ID, pID, self.ID, \
+                                     left_open=True, right_open=True):
             self.predecessor = n_prime
         return
     
     def stabilize(self):
         x = self.successor().predecessor
-        if check_mod_interval(x.ID, self.ID, self.successor().ID, \
+        if self.check_mod_interval(x.ID, self.ID, self.successor().ID, \
                                      left_open=True, right_open=True):
             self.FingerTable['finger'][0] = x
         self.successor().notify(self)
