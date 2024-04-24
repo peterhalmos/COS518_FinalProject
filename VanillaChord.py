@@ -60,11 +60,18 @@ class Chord_Node(): # will super() this once Koorde is done..
     
     def find_pred(self, ID):
         n_prime = self
+        if ID == n_prime.ID:
+            return n_prime.predecessor
         while not self.check_mod_interval( ID, n_prime.ID,\
                                      n_prime.successor().ID, \
                                      left_open=True, right_open=False ):
             # Keep searching
-            n_prime = n_prime.closest_preceeding_finger(ID)
+            n = n_prime.closest_preceeding_finger(ID)
+            # handles initialization
+            if n == n_prime:
+                return n
+            else:
+                n_prime = n
         return n_prime
     
     def closest_preceeding_finger(self, ID):
@@ -91,18 +98,18 @@ class Chord_Node(): # will super() this once Koorde is done..
             for i in range(self.m):
                 self.FingerTable['finger'][i] = self
             self.predecessor = self
-            
         return
     
     def init_finger_table(self, n_prime):
         # Resetting successor and predecessor pointers as needed
+        a = n_prime.find_succ(self.FingerTable['start'][0])
         self.FingerTable['finger'][0] = n_succ = n_prime.find_succ(self.FingerTable['start'][0])
         self.predecessor = n_succ.predecessor
         n_succ.predecessor = n_succ.FingerTable['finger'][0] = self
         
         for i in range(self.m-1):
             
-            if check_interval(self.FingerTable['start'][i+1], \
+            if self.check_mod_interval(self.FingerTable['start'][i+1], \
                               self.ID, self.FingerTable['finger'][i].ID, \
                              left_open=False, right_open=True \
                              ):
