@@ -159,13 +159,19 @@ class Chord_Node(): # will super() this once Koorde is done..
         # invoke find_predecessor and find its successor pointer
         return self.find_pred(ID).successor()
     
-    def find_pred(self, ID):       # ISSUE FUNCTION
+    def find_pred(self, ID):
+        if ID == self.ID:
+            return self.predecessor
         n_prime = self.ID
         while not self.check_mod_interval( ID, n_prime,\
                                      self.blocking_rpc(n_prime, "successor", tuple()), \
                                      left_open=True, right_open=False ):
             # Keep searching
-            n_prime = self.blocking_rpc(n_prime, "closest_preceeding_finger", (ID,))
+            n = self.blocking_rpc(n_prime, "closest_preceeding_finger", (ID,))
+            if n == n_prime:
+                return n_prime
+            else:  
+                n_prime = n
         return n_prime
     
     def closest_preceeding_finger(self, ID):
@@ -207,7 +213,7 @@ class Chord_Node(): # will super() this once Koorde is done..
         
         for i in range(M-1):
             
-            if check_interval(self.FingerTable['start'][i+1], \
+            if self.check_mod_interval(self.FingerTable['start'][i+1], \
                               self.ID, self.FingerTable['finger'][i], \
                              left_open=False, right_open=True \
                              ):
