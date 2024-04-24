@@ -113,7 +113,7 @@ class Chord_Node(): # will super() this once Koorde is done..
         mid = self.new_msg_id()
         blocking_mailbox = simgrid.mailbox.by_name(str(mid))  # A mailbox unique to this message. Inefficient (dep. on impl. on simgrid side) but makes things easy.
         target_mailbox = simgrid.mailbox.by_name(str(target_ID))
-        target_mailbox.put((mid, mid), msg_type, payload)
+        target_mailbox.put(((mid, mid), msg_type, payload), 0)
         resp = blocking_mailbox.get()
         return resp[2]
 
@@ -122,7 +122,7 @@ class Chord_Node(): # will super() this once Koorde is done..
 
     def send_resp(self, msg_id, target, payload):
         target_mailbox = simgrid.mailbox.by_name(str(target))
-        target_mailbox.put_async((msg_id, None), RESP, payload)
+        target_mailbox.put_async(((msg_id, None), RESP, payload), 0)
         return
 
     def spawn_child(self)
