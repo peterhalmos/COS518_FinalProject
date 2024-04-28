@@ -3,6 +3,7 @@ A Vanilla Implementation of Chord.
 
 We extend this code for use on simgrid and realistic emulators.
 '''
+from random import sample
 
 class Chord_Node(): # will super() this once Koorde is done..
     
@@ -31,22 +32,26 @@ class Chord_Node(): # will super() this once Koorde is done..
             self.FingerTable['start'].append(start)
             end = (start + 2**i)%self.q
             self.FingerTable['interval'].append((start,end))
-            
         return
     
     def check_mod_interval(self, x, init, end, left_open=True, right_open=True):
-        # Check the modular rotation for each case
+        '''Check the modular rotation for each case
+         1. [init, end), 2. (init, end], 3. [init, end], 4. (init, end)
+        '''
+        # Edge case: init==end is True except case where interval open, and x = init = end
+        if init == end:
+            if (left_open and right_open and x == init):
+                return False
+            else:
+                return True
+        # Otherwise, check normally: init =/= end
         if right_open and not left_open:
-            # 1 if in the interval [init, end) and 0 otherwise
             return (x - init)%self.q < (end - init)%self.q
         elif left_open and not right_open:
-            # 1 if in the interval (init, end] and 0 otherwise
             return (end - x)%self.q < (end - init)%self.q
         elif not left_open and not right_open:
-            # 1 if in the interval [init, end] and 0 otherwise
             return (x - init)%self.q <= (end - init)%self.q
         else:
-            # 1 if in the interval (init, end) and 0 otherwise
             b = (x - end)%self.q <= (init - end)%self.q
             return not b
     
@@ -55,8 +60,17 @@ class Chord_Node(): # will super() this once Koorde is done..
         return self.FingerTable['finger'][0]
     
     def find_succ(self, ID):
-        # invoke find_predecessor and find its successor pointer
-        return self.find_pred(ID).successor()
+        if ID == self.ID:
+            # Return self's successor if ID equal
+            return self.successor()
+        elif self.check_mod_interval(ID, self.predecessor.ID,\
+                                     self.ID, \
+                                     left_open=True, right_open=False):
+            # Return self if in interval (self.pred.ID, self.ID]
+            return self
+        else:
+            # Otherwise, invoke find_predecessor to recursively search for ID's pred and find its successor pointer
+            return self.find_pred(ID).successor()
     
     def find_pred(self, ID):
         n_prime = self
@@ -66,12 +80,7 @@ class Chord_Node(): # will super() this once Koorde is done..
                                      n_prime.successor().ID, \
                                      left_open=True, right_open=False ):
             # Keep searching
-            n = n_prime.closest_preceeding_finger(ID)
-            # handles initialization
-            if n == n_prime:
-                return n
-            else:
-                n_prime = n
+            n_prime = n_prime.closest_preceeding_finger(ID)
         return n_prime
     
     def closest_preceeding_finger(self, ID):
@@ -83,18 +92,20 @@ class Chord_Node(): # will super() this once Koorde is done..
                                   self.ID, ID, \
                                   left_open=True, right_open=True):
                 return self.FingerTable['finger'][i]
-            return self
+        return self
     
     def join(self, n_prime):
         '''
         Adding a new Node to the DHT by reference to n_prime
         '''
         if n_prime != self:
+            # Initialize self's finger table to reflect n_prime's
             self.init_finger_table(n_prime)
-            
-            # This needs to be implemented for the code to work properly...
+            # Update the finger tables of the other nodes as self has joined
             self.update_others()
         else:
+            # Initialization case
+            # self == n_prime is only node in the network
             for i in range(self.m):
                 self.FingerTable['finger'][i] = self
             self.predecessor = self
@@ -102,27 +113,33 @@ class Chord_Node(): # will super() this once Koorde is done..
     
     def init_finger_table(self, n_prime):
         # Resetting successor and predecessor pointers as needed
-        a = n_prime.find_succ(self.FingerTable['start'][0])
+        # 1. Use n_prime's existing Finger Table to set the successor node for self
         self.FingerTable['finger'][0] = n_succ = n_prime.find_succ(self.FingerTable['start'][0])
+        
+        # 2. Set the node previous to the successor as our current predecessor
         self.predecessor = n_succ.predecessor
-        n_succ.predecessor = n_succ.FingerTable['finger'][0] = self
+        
+        # 3. Reset the successor's predecessor to self (the node joining the network)
+        n_succ.predecessor.FingerTable['finger'][0] = n_succ.predecessor = self
         
         for i in range(self.m-1):
-            
             if self.check_mod_interval(self.FingerTable['start'][i+1], \
                               self.ID, self.FingerTable['finger'][i].ID, \
                              left_open=False, right_open=True \
                              ):
                 self.FingerTable['finger'][i+1] = self.FingerTable['finger'][i]
-                
             else:
                 self.FingerTable['finger'][i+1] = n_prime.find_succ(self.FingerTable['start'][i+1])
         
         return
     
     def update_finger_table(self, z, i):
+        #print(f'{z.ID} in [{self.ID},{self.FingerTable['finger'][i].ID})?')
+        # Need to handle trivial case
+        not_init = (z.ID != self.ID)
         if self.check_mod_interval(z.ID, self.ID, self.FingerTable['finger'][i].ID,\
-                                     left_open=True, right_open=False):
+                                     left_open=False, right_open=True) \
+                                        & not_init:
             self.FingerTable['finger'][i] = z
             p = self.predecessor
             p.update_finger_table(z, i)
@@ -142,14 +159,26 @@ class Chord_Node(): # will super() this once Koorde is done..
             self.FingerTable['finger'][0] = x
         self.successor().notify(self)
         return
-    
+        
     def update_others(self):
-        for i in range(self.m):
-            # will fill this out later
-            pass
+        # Update the other nodes in the finger table to reflect all updates
+        for i in range(1, self.m+1, 1):
+            a,b = self.ID,2**(i-1)
+            idx = (a-b)%self.q
+            p = self.find_pred(idx)
+            p.update_finger_table(self, i-1)
         return
     
     def fix_fingers(self):
-        # ditto, will finish this
-        pass
+        # Randomly sample Finger Table entries and update to correct successor
+        i = sample(range(self.m), 1)[0]
+        self.FingerTable['finger'][i] = self.find_succ(self.FingerTable['start'][i])
         return
+
+def print_fingers(node, m=8):
+    # For printing the full finger table data for a given node
+    print(f'Finger table of {node.ID}')
+    print('start | interval | finger')
+    for i in range(m):
+        print(str(node.FingerTable['start'][i]) + ' | ' + str(node.FingerTable['interval'][i]) + ' | ' + str(node.FingerTable['finger'][i].ID))
+    return
