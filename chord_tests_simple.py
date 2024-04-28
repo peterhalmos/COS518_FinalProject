@@ -1,32 +1,48 @@
 import simgrid
-import Chord
+import VanillaChordIntegrated as VCI
 import random
 import time
+import os
 
 node_ids = []
 
 e = simgrid.Engine(["chord_tests_platform.xml", "chord_tests_deployment.xml"])
-e.register_actor("node", Chord.Node)
+
+NUM_NODES = 1000
+NUM_CLIENTS = 100
+platform_desc = \
+"""<?xml version='1.0'?>
+<!DOCTYPE platform SYSTEM "https://simgrid.org/simgrid.dtd">
+<platform version="4.1">
+    <zone id="zone0" routing="Floyd">
+        <!-- Central node for routing -->
+        <host id="central_node" speed="100000Gf"/>\n\n\t""" + \
+        "\n\t".join([f'<host id="host{i}" speed="1Gf" />' for i in range(NUM_NODES)]) + "\n\t" + \
+        "\n\t".join([f'<host id="clienthost{i}" speed="1Gf" />' for i in range(NUM_CLIENTS)]) + "\n\t" + \
+        "\n\t".join([f'<link id="link{i}" bandwidth="10Gbps" latency="10ms"/>' for i in range(NUM_NODES)]) + \
+        "\n\t".join([f'<link id="clientlink{i}" bandwidth="10Gbps" latency="10ms"/>' for i in range(NUM_CLIENTS)]) + \
+        "\n\t".join([f'<route src="host{i}" dst="central_node"> <link_ctn id="link{i}"/> </route>' for i in range(NUM_NODES)]) + \
+        "\n\t".join([f'<route src="clienthost{i}" dst="central_node"> <link_ctn id="link{i}"/> </route>' for i in range(NUM_CLIENTS)]) + \
+        """
+    </zone>
+</platform>
+"""
+TMP_PLATFORM_FILE = "tmp_platform_desc.txt"
+with open(TMP_PLATFORM_FILE, "w") as f:
+    f.write(platform_desc)
+e.load_platform(TMP_PLATFORM_FILE)
+#os.remove(TMP_PLATFORM_FILE)
 
 
-def master_fn():
-    init_mailbox = simgrid.Mailbox.by_name("init")
-    ids = [random.randrange(0, 1 << Chord.KEY_SIZE) for _ in range(5)]
-    init_mailbox.put((-1, Chord.START, -1, ids[0], None), 0)  # Start one of the processes.
-    for i in range(1, 5):
-        init_mailbox.put((-1, Chord.START, -1, ids[i], ids[i-1]), 0)  # Start one of the processes.
-    time.sleep(3)
-    for i in range(5):
-        simgrid.Mailbox.by_name(str(ids[i])).put((-1, Chord.PING, -1), 0)
-    
+actor_ids = []
+client_ids = []
 
-
-e.register_actor("master", master_fn)
-
-
-
-
-e.load_platform("chord_tests_platform.xml")
-e.load_deployment("chord_tests_deployment.xml")
-print("Loaded. Running...")
+actor_ids.append(random.randrange(0, VCI.Q))
+simgrid.Actor.create(f"0", simgrid.Host.by_name(f"host0"), VCI.Chord_Node(ID=actor_ids[-1], join_target=None))
+for i in range(1, NUM_NODES):
+    actor_ids.append(random.randrange(0, VCI.Q))
+    simgrid.Actor.create(f"{i}", simgrid.Host.by_name(f"host{i}"), VCI.Chord_Node(ID=actor_ids[-1], join_target=actor_ids[-2]))
+for i in range(NUM_CLIENTS):
+    client_ids.append(random.randrange(0, VCI.Q))
+    simgrid.Actor.create(f"client_{i}", simgrid.Host.by_name(f"clienthost{i}"), VCI.Client(ID=client_ids[-1], target=actor_ids[i % len(actor_ids)]))
 e.run()
