@@ -133,7 +133,7 @@ class Chord_Node(): # will super() this once Koorde is done..
         
         return
     
-    def update_finger_table(self, z, i):
+    def update_finger_table(self, z, i):  # Appears unused?
         #print(f'{z.ID} in [{self.ID},{self.FingerTable['finger'][i].ID})?')
         # Need to handle trivial case
         not_init = (z.ID != self.ID)
