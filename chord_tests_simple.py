@@ -1,15 +1,24 @@
 import subprocess
 import os
 
-latencies = {}
-for num_nodes in [2**i for i in range(3, 13)]:
+chord_latencies = {}
+koorde_latencies = {}
+for num_nodes in [2**i for i in range(3, 8)]:
     try:
         result = subprocess.run(["python", os.path.dirname(os.path.abspath(__file__)) + "/chord_latency_test.py", str(num_nodes)], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout_str = result.stdout.decode('utf-8').split("\n")[-1]
         print(stdout_str)
-        latencies[num_nodes] = float(stdout_str)
-        print("Completed simulation for", num_nodes, "nodes! Latency:", latencies[num_nodes])
+        chord_latencies[num_nodes] = float(stdout_str)
+        print("Completed chord simulation for", num_nodes, "nodes! Latency:", chord_latencies[num_nodes])
+    except subprocess.CalledProcessError as e:
+        print("Error:", e)
+    try:
+        result = subprocess.run(["python", os.path.dirname(os.path.abspath(__file__)) + "/koorde_latency_test.py", str(num_nodes)], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout_str = result.stdout.decode('utf-8').split("\n")[-1]
+        print(stdout_str)
+        koorde_latencies[num_nodes] = float(stdout_str)
+        print("Completed koorde simulation for", num_nodes, "nodes! Latency:", koorde_latencies[num_nodes])
     except subprocess.CalledProcessError as e:
         print("Error:", e)
 
-print(latencies)
+print(chord_latencies, koorde_latencies)

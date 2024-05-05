@@ -9,7 +9,7 @@ from random import sample, randrange
 global M, Q
 global KILL, RESP, RPC, RPC_NORESP, PING, PING_NORESP, FINGER_PRINT
 
-M = 50
+M = 25
 Q = 2 ** M
 
 # Idea: when parent needs to do something blocking, it spawns a child, does what it needs to do, passes any updates to the child, and dies.
@@ -347,7 +347,7 @@ class Client:
         simgrid.this_actor.sleep_for(10000)  # Wait for the network to get set up and stable
 
         for i in range(1):
-            self.store_val(randrange(0, 100), randrange(0, 10000000000))
+            self.store_val(str(randrange(0, 100)), randrange(0, 10000000000))
             self.get_val(randrange(0, 100))
         simgrid.Mailbox.by_name(MONITOR_MAILBOX).put({"store_latencies":tuple(self.store_latencies),
                                                       "read_latencies":tuple(self.read_latencies)}, 0)
