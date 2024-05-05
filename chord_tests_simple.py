@@ -3,7 +3,7 @@ import os
 
 chord_latencies = {}
 koorde_latencies = {}
-for num_nodes in [2**i for i in range(3, 8)]:
+for num_nodes in [2**i for i in range(3, 11)]:
     try:
         result = subprocess.run(["python", os.path.dirname(os.path.abspath(__file__)) + "/chord_latency_test.py", str(num_nodes)], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout_str = result.stdout.decode('utf-8').split("\n")[-1]

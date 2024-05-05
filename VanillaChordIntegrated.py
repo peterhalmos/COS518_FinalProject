@@ -206,7 +206,9 @@ class Chord_Node(): # will super() this once Koorde is done..
             return self.predecessor
         n_prime = self.ID
         n = None
+        #self.print("Starting find_pred")
         while n != n_prime:
+            #self.print(str(n_prime))
             # Keep searching
             n = n_prime
             n_prime = self.blocking_rpc(n_prime, "closest_preceeding_finger", (ID,))
@@ -271,7 +273,7 @@ class Chord_Node(): # will super() this once Koorde is done..
             changed = False
             for i in range(M):
                 if self.check_mod_interval(z, self.FingerTable['start'][i], self.FingerTable['finger'][i],\
-                                     left_open=True, right_open=True):
+                                     left_open=True, right_open=False):
                     changed = True
                     self.FingerTable['finger'][i] = z
             if changed:

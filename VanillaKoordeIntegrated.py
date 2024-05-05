@@ -7,7 +7,7 @@ from random import sample, randrange
 global M, Q
 global KILL, RESP, RPC, RPC_NORESP, PING, PING_NORESP, FINGER_PRINT
 
-M = 50
+M = 8
 Q = 2 ** M
 # Idea: when parent needs to do something blocking, it spawns a child, does what it needs to do, passes any updates to the child, and dies.
 # Messages are structured as ((msg_id, return_mailbox_id), msg_type, payload). Typically, resps (which are to blocking queries) will want to go to a separate inbox
@@ -105,10 +105,14 @@ class Koorde_Node(): # will super() this once Koorde is done..
 
     def request(self, target_ID, msg_type, payload):
         mid = self.new_msg_id()
+        #self.print("Start request")
+        #self.print(str(msg_type) + " " + str(payload))
         target_mailbox = simgrid.Mailbox.by_name(str(target_ID))
+        #self.print("Target mailbox:" + str(target_mailbox))
         if target_ID is None:
             raise ArithmeticError
         target_mailbox.put(((mid, mid), msg_type, payload), 0)
+        #self.print("Await resp")
         if msg_type in [RPC, PING]:  # Message types that obtain a response:
             blocking_mailbox = simgrid.Mailbox.by_name(str(mid))  # A mailbox unique to this message.
             resp = blocking_mailbox.get()
@@ -116,6 +120,7 @@ class Koorde_Node(): # will super() this once Koorde is done..
 
     def blocking_rpc(self, target_ID, func, args):
         if self.ID == target_ID:  # So that we don't block on RPCs to self.
+            self.print("Rec")
             return self.call(func, args)
         else:
             return self.request(target_ID, RPC, (func, args))
@@ -153,6 +158,10 @@ class Koorde_Node(): # will super() this once Koorde is done..
     def find_succ(self, val):
         imaginary_id = self.best_move(val)
         z = self.lookup(val, val, imaginary_id)
+        # if z == self.predecessor:
+        #     return self.ID
+        # else:
+        #     
         return self.blocking_rpc(z, "var_val", ("successor",))
 
     def join(self, n_prime):
@@ -175,14 +184,17 @@ class Koorde_Node(): # will super() this once Koorde is done..
         return 0
 
     def lookup(self, key, key_shift, i):
+        #self.print("Looking up...")
         # * key is the node identifier that we're looking for, key_shift is the shifted version of key based
         # on the lookup path so far.
         # * i is the imaginary de Bruijn node, which does not necessarily exist in the graph.
         if self.check_interval(self.ID, key, self.successor):
             return self.successor
         elif self.check_interval(self.ID, i, self.successor):
+            #self.print("Getting next")
             return self.blocking_rpc(self.next, "lookup", (key, (key_shift << 1) % Q, (i << 1) % Q + self.top_bit(key_shift)) )
         else:
+            #self.print("Getting successor")
             return self.blocking_rpc(self.successor, "lookup", (key, key_shift, i) )
 
     def best_move(self, key):
@@ -224,20 +236,67 @@ class Koorde_Node(): # will super() this once Koorde is done..
             return
         # set successor and predecessor for newly-entered node.
         self.successor = self.blocking_rpc(n_prime, "find_succ", (self.ID,))
+        self.print("Found successor: " + str(self.successor))
         self.predecessor = self.blocking_rpc(self.successor, "var_val", ("predecessor",))
-        self.next = self.blocking_rpc(self.successor, "find_succ", ((self.ID * 2) % Q , ))
-        self.noreturn_rpc(self.predecessor, "update_succ", (self.ID,))
-        self.noreturn_rpc(self.successor, "update_pred", (self.ID,))
+
+        #self.try_update_next(self.ID)
+
+        self.next = self.blocking_rpc(self.successor, "find_succ", ((self.ID * 2) % Q, ))
+
+        self.update_others()
+        self.blocking_rpc(self.predecessor, "update_succ", (self.ID,))
+        self.blocking_rpc(self.successor, "update_pred", (self.ID,))
+
+        self.print("Begin deadlock")
+
+        
+        self.try_update_next(self.ID)
+
+        self.print("Intermediate deadlock")
+        
+        #self.next = self.blocking_rpc(self.successor, "find_succ", ((self.ID * 2) % Q , ))
+
+        self.print("End deadlock")
+
+        
         # set de Bruijn graph pointer "next" and update other node
-        self.update_others() # update the "next" pointer for the node before'''
+        #self.update_others() # update the "next" pointer for the node before'''
+
         return
+
+    
+    
         
     def update_others(self):
+        # potential_successor_targets = [(self.ID >> 1)-1, (self.ID >> 1)-1 + Q//2, self.ID-1]
+        # potential_nodes = set()
+        # for ID in potential_successor_targets:
+        #     self.print("Start update...")
+        #     potential_nodes.add(self.blocking_rpc(self.blocking_rpc(self.successor, "find_succ", (ID,)), "var_val", ("predecessor",)))
+        # for n in potential_nodes:
+        #     if n != self.ID:
+        #         self.blocking_rpc(n, "try_update_next", (self.ID,))
+        #     self.print("Finish update")
         key = ((self.predecessor + 1) >> 1) % Q
+        self.print("Key: " + str(key))
         if (key << 1)% Q == self.predecessor + 1:
-          other_node = self.find_succ(key)
-          self.blocking_rpc(other_node, "set_var", ("next", self.ID))
+            self.print("Active!")
+            other_node = self.find_succ(key)
+            self.print("Other node: " + str(other_node))
+            self.blocking_rpc(other_node, "set_next", (self.ID,))
+            self.print("To confirm: " + str(self.blocking_rpc(other_node, "var_val", ("next",))))
         return
+    
+    def set_next(self, val):
+        self.next = val
+
+    def try_update_next(self, ID):
+        self.print("Trying to update next. Current: " + str(self.ID) + " and new: " + str(ID))
+        if self.check_interval((2 * self.ID) % Q, ID, self.next):
+            self.print("Succeeded!")
+            self.next = ID
+
+
     
     def print_info(node):
         print(f'Finger table of {node.ID}:')
@@ -290,7 +349,7 @@ class Client:
         #self.print("Storing val!")
         t = simgrid.Engine.clock
         storing_node = self.blocking_rpc(self.target, "find_succ", (self.protocol_hash(key),))
-        #self.print("Found storing node for " + str(self.protocol_hash(key)) + ": " + str(storing_node))
+        self.print("Found storing node for " + str(self.protocol_hash(key)) + ": " + str(storing_node))
         self.blocking_rpc(storing_node, "store", (self.protocol_hash(key), val))
         self.store_latencies.append(simgrid.Engine.clock - t)
         #self.print("Finished store!")
@@ -332,10 +391,10 @@ class Monitor:
         #     for server_id in self.server_ids:
         #         target_mailbox = simgrid.Mailbox.by_name(str(server_id))
         #         target_mailbox.put(((-1, -1), PING_NORESP, None), 0)
-        simgrid.this_actor.sleep_for(10)
-        # for server_id in self.server_ids:
-        #     target_mailbox = simgrid.Mailbox.by_name(str(server_id))
-        #     target_mailbox.put(((-1, -1), FINGER_PRINT, None), 0)
+        simgrid.this_actor.sleep_for(1000)
+        for server_id in self.server_ids:
+            target_mailbox = simgrid.Mailbox.by_name(str(server_id))
+            target_mailbox.put(((-1, -1), FINGER_PRINT, None), 0)
 
         while self.num_clients_alive > 0:
             client_return = self.mailbox.get()
