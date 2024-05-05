@@ -346,7 +346,7 @@ class Client:
     def __call__(self):
         simgrid.this_actor.sleep_for(10000)  # Wait for the network to get set up and stable
 
-        for i in range(1):
+        for i in range(10):
             self.store_val(str(randrange(0, 100)), randrange(0, 10000000000))
             self.get_val(randrange(0, 100))
         simgrid.Mailbox.by_name(MONITOR_MAILBOX).put({"store_latencies":tuple(self.store_latencies),

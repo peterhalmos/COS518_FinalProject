@@ -8,7 +8,7 @@ def average(l):
 
 if __name__ == "__main__":
     NUM_NODES = int(sys.argv[1])
-    NUM_CLIENTS = 1
+    NUM_CLIENTS = 100
     
     platform_desc = \
     """<?xml version='1.0'?>
