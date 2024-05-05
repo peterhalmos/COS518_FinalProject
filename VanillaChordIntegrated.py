@@ -6,11 +6,11 @@ We extend this code for use on simgrid and realistic emulators.
 import simgrid
 from random import sample, randrange
 
-
+global M, Q
+global KILL, RESP, RPC, RPC_NORESP, PING, PING_NORESP, FINGER_PRINT
 
 M = 50
 Q = 2 ** M
-
 
 # Idea: when parent needs to do something blocking, it spawns a child, does what it needs to do, passes any updates to the child, and dies.
 # Messages are structured as ((msg_id, return_mailbox_id), msg_type, payload). Typically, resps (which are to blocking queries) will want to go to a separate inbox
@@ -23,15 +23,8 @@ PING = 3
 PING_NORESP = -3
 FINGER_PRINT = 4
 
-
-
 # NOTE: Leon points out that generators can take inputs as a response to yield with .continue, 
 # and that this is the perfect mechanism for running async functions with many blocking calls. May be dramatically easier than debugging the fork-and-die scheme.
-
-
-
-
-
 
 class Chord_Node(): # will super() this once Koorde is done..
     def __init__(self, ID, FingerTable=None, predecessor=None, num_sent=-1, storage={}, join_target=None): 
@@ -169,9 +162,6 @@ class Chord_Node(): # will super() this once Koorde is done..
         """
         simgrid.Actor.create(simgrid.this_actor.get_host(), self.__class__(ID=self.ID, FingerTable=self.FingerTable, predecessor=self.predecessor, num_sent=self.num_sent, storage=self.storage))
 
-
-
-
     def check_mod_interval(self, x, init, end, left_open=True, right_open=True):
         # Check the modular rotation for each case
         '''Check the modular rotation for each case
@@ -208,7 +198,6 @@ class Chord_Node(): # will super() this once Koorde is done..
             # Return self if in interval (self.pred.ID, self.ID]
             return self.ID
         else:
-
             # Otherwise, invoke find_predecessor to recursively search for ID's pred and find its successor pointer
             return self.blocking_rpc(self.find_pred(ID), "successor", tuple())
     
@@ -251,8 +240,7 @@ class Chord_Node(): # will super() this once Koorde is done..
             self.predecessor = self.ID
             
         return
-
-
+        
     def update_pred(self, ID):
         self.predecessor = ID
     

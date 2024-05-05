@@ -18,7 +18,6 @@ class Koorde_Node():
         imaginary_id = self.best_move(val)
         return self.lookup(val, val, imaginary_id)
 
-
     def join(self, n_prime):
         '''
         Adding a new Node to the DHT by reference to n_prime
