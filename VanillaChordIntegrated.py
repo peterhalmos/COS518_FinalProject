@@ -85,7 +85,7 @@ class Chord_Node(): # will super() this once Koorde is done..
                 """
                 We have two types of procedures -- those that modify internal state, and those that call externally. Except for stabilizing (which we'll treat separately), none do both. 
                 """
-                if payload[0] in ["blocking_request", "blocking_rpc", "find_succ", "find_pred"]:
+                if payload[0] in ["blocking_request", "blocking_rpc", "find_succ", "find_pred", "num_hops"]:
                     simgrid.Actor.create(f"responder_{randrange(0, 1<<64)}", simgrid.this_actor.get_host(), self.call_and_resp, msg_id, sender_id, payload)
                 else:  # Otherwise, we might modify state (and we won't block), so we do it in thread.
                     if msg_type == RPC:
@@ -214,6 +214,24 @@ class Chord_Node(): # will super() this once Koorde is done..
             n_prime = self.blocking_rpc(n_prime, "closest_preceeding_finger", (ID,))
 
         return n_prime
+
+    def num_hops(self, ID):
+        if ID == self.ID:
+            return self.predecessor
+        n_prime = self.ID
+        n = None
+        #self.print("Starting find_pred")
+        ct = 1
+        while n != n_prime:
+            #self.print(str(n_prime))
+            # Keep searching
+            n = n_prime
+            n_prime = self.blocking_rpc(n_prime, "closest_preceeding_finger", (ID,))
+            ct += 1
+
+        return ct
+
+
     
     def closest_preceeding_finger(self, ID):
         '''
@@ -344,15 +362,18 @@ class Client:
         self.num_sent = 0
         self.store_latencies = []
         self.read_latencies = []
+        self.num_hops = []
 
     def __call__(self):
         simgrid.this_actor.sleep_for(10000)  # Wait for the network to get set up and stable
 
         for i in range(10):
             self.store_val(str(randrange(0, 100)), randrange(0, 10000000000))
+            self.eval_num_hops(str(randrange(0, 100)))
             self.get_val(randrange(0, 100))
         simgrid.Mailbox.by_name(MONITOR_MAILBOX).put({"store_latencies":tuple(self.store_latencies),
-                                                      "read_latencies":tuple(self.read_latencies)}, 0)
+                                                      "read_latencies":tuple(self.read_latencies),
+                                                      "num_hops":tuple(self.num_hops)}, 0)
         return
     
     def blocking_request(self, target_ID, msg_type, payload):
@@ -371,6 +392,9 @@ class Client:
         storing_node = self.blocking_rpc(self.target, "find_succ", (self.protocol_hash(key) % Q,))
         self.blocking_rpc(storing_node, "store", (self.protocol_hash(key) % Q, val))
         self.store_latencies.append(simgrid.Engine.clock - t)
+    
+    def eval_num_hops(self, key):
+        self.num_hops.append(self.blocking_rpc(self.target, "num_hops", (self.protocol_hash(key) % Q,)))
     
     def get_val(self, key):
         t = simgrid.Engine.clock

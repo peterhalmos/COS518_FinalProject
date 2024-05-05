@@ -53,7 +53,8 @@ if __name__ == "__main__":
         simgrid.Actor.create(f"client_{i}", simgrid.Host.by_name(f"clienthost{i}"), VCI.Client(ID=client_ids[-1], target=server_ids[i % len(server_ids)]))
     e.run()
     flat_read_latencies = [x for y in monitor_object.info_dicts["read_latencies"] for x in y]
+    num_hops = [x for y in monitor_object.info_dicts["num_hops"] for x in y]
     #sys.stdout.write(str((sum(flat_read_latencies) / len(flat_read_latencies)))
-    sys.stdout.write(str(average(flat_read_latencies)))
+    sys.stdout.write(str(average(flat_read_latencies)) + " " + str(average(num_hops)))
     sys.stdout.flush()
     sys.exit(0)
