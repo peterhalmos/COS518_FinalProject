@@ -17,7 +17,7 @@ class Chord_Node(): # will super() this once Koorde is done..
         # size of key-space
         self.q = 2**self.m 
         # Set the identifer to be a number modulo 2^m (keyspace's modular interval)
-        self.ID = ID % 2**self.m 
+        self.ID = ID % 2**self.m
         
         # Initialize Finger Table
         start, end = self.ID+1,self.ID+2
@@ -72,16 +72,24 @@ class Chord_Node(): # will super() this once Koorde is done..
             # Otherwise, invoke find_predecessor to recursively search for ID's pred and find its successor pointer
             return self.find_pred(ID).successor()
     
-    def find_pred(self, ID):
+    def find_pred(self, ID, count_hops=False):
+        num_hops = 0
         n_prime = self
         if ID == n_prime.ID:
-            return n_prime.predecessor
-        while not self.check_mod_interval( ID, n_prime.ID,\
-                                     n_prime.successor().ID, \
-                                     left_open=True, right_open=False ):
-            # Keep searching
-            n_prime = n_prime.closest_preceeding_finger(ID)
-        return n_prime
+            ret_node = n_prime.predecessor
+        else:
+            while not self.check_mod_interval( ID, n_prime.ID,\
+                                         n_prime.successor().ID, \
+                                         left_open=True, right_open=False ):
+                # Keep searching
+                n_prime = n_prime.closest_preceeding_finger(ID)
+                num_hops += 1
+            ret_node = n_prime
+            
+        if count_hops is False:
+            return n_prime
+        else:
+            return num_hops+1
     
     def closest_preceeding_finger(self, ID):
         '''
@@ -130,19 +138,19 @@ class Chord_Node(): # will super() this once Koorde is done..
                 self.FingerTable['finger'][i+1] = self.FingerTable['finger'][i]
             else:
                 self.FingerTable['finger'][i+1] = n_prime.find_succ(self.FingerTable['start'][i+1])
-        
         return
     
     def update_finger_table(self, z, i):  # Appears unused?
         #print(f'{z.ID} in [{self.ID},{self.FingerTable['finger'][i].ID})?')
         # Need to handle trivial case
-        not_init = (z.ID != self.ID)
-        if self.check_mod_interval(z.ID, self.ID, self.FingerTable['finger'][i].ID,\
-                                     left_open=False, right_open=True) \
-                                        & not_init:
+        if z.ID == self.ID:
+            return
+        elif self.check_mod_interval(z.ID, self.ID, self.FingerTable['finger'][i].ID,\
+                                     left_open=False, right_open=True):
             self.FingerTable['finger'][i] = z
             p = self.predecessor
             p.update_finger_table(z, i)
+        
         return
     
     def notify(self, n_prime):

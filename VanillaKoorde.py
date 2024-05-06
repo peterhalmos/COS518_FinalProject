@@ -7,17 +7,36 @@ class Koorde_Node():
         self.q = 2 ** self.m
         # Set the identifier to be a number modulo 2^d (keyspace's modular interval)
         self.ID = ID % self.q
-        # base used for bit-representation of ID
-        # self.k = k
         # As described in Koorde paper, we maintain (1) the successor of our node (ID) and (2) the node that
         # preceeds the node with identifier 2*(ID) (mod 2^d).
-
         return
 
-    def find_succ(self, val):
+    def find_succ(self, val, count_hops=False):
         imaginary_id = self.best_move(val)
-        return self.lookup(val, val, imaginary_id)
-
+        if count_hops:
+            n = self.lookup(val, val, imaginary_id, counter=0)
+            return n
+        else:
+            return self.lookup(val, val, imaginary_id)
+    
+    def lookup(self, key, key_shift, i, counter=None):
+        # * key is the node identifier that we're looking for, key_shift is the shifted version of key based
+        # on the lookup path so far.
+        # * i is the imaginary de Bruijn node, which does not necessarily exist in the graph.
+        if counter is not None:
+            # performing a count_hops trace
+            counter = counter+1
+        if self.check_interval(self.ID, key, self.successor.ID):
+            if counter is not None:
+                return counter
+            else:
+                return self.successor
+        elif self.check_interval(self.ID, i, self.successor.ID):
+            return self.next.lookup(key, (key_shift << 1) % self.q, (i << 1) % self.q + self.top_bit(key_shift), \
+                                    counter=counter)
+        else:
+            return self.successor.lookup(key, key_shift, i, counter=counter)
+        
     def join(self, n_prime):
         '''
         Adding a new Node to the DHT by reference to n_prime
@@ -37,17 +56,6 @@ class Koorde_Node():
       else:
         return 0
 
-    def lookup(self, key, key_shift, i):
-        # * key is the node identifier that we're looking for, key_shift is the shifted version of key based
-        # on the lookup path so far.
-        # * i is the imaginary de Bruijn node, which does not necessarily exist in the graph.
-        if self.check_interval(self.ID, key, self.successor.ID):
-            return self.successor
-        elif self.check_interval(self.ID, i, self.successor.ID):
-            return self.next.lookup(key, (key_shift << 1) % self.q, (i << 1) % self.q + self.top_bit(key_shift))
-        else:
-            return self.successor.lookup(key, key_shift, i)
-
     def best_move(self, key):
         current_id = self.ID
         # path will contain the search path in de Bruijn graph
@@ -61,7 +69,6 @@ class Koorde_Node():
         j = 0
         while not self.check_interval(self.ID, path[j], self.successor.ID) and j > 0:
           j = j+1
-
         return path[j]
 
     def check_interval(self, begin, middle, end):
@@ -104,10 +111,10 @@ class Koorde_Node():
         return
 
     def update_others(self):
-        key = ((self.predecessor.ID + 1) >> 1) % self.q
-        if (key << 1)% self.q == self.predecessor.ID + 1:
-          other_node = self.find_succ(key)
-          other_node.next = self
+        key = ((self.ID + 1) >> 1) % self.q
+        #if (key << 1)% self.q == self.predecessor.ID + 1:
+        other_node = self.find_succ(key)
+        other_node.next = self
         return
 
 def print_info(node):
