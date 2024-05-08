@@ -8,9 +8,9 @@ The reproducible files for testing VanillaChordIntegrated.py are:
 - chord_latency_test.py
 - chord_tests_simple.py
 
-The file for testing VanillaKoordeIntegrated.py is in: koorde_latency_test.py, though we note the limitations of our implementation in our Medium post.
+The file for testing VanillaKoordeIntegrated.py is in koorde_latency_test.py, though we note the limitations of our Koorde implementation in our Medium post.
 
-The "vanilla" versions for running locally are in:
+The "vanilla" versions for running Chord and Koorde locally are in:
 - VanillaChord.py
 - VanillaKoorde.py
 
