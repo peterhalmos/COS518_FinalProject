@@ -14,7 +14,7 @@ The "vanilla" versions for running locally are in:
 - VanillaChord.py
 - VanillaKoorde.py
 
-And the testing for both implementations is given in:
+And the testing for both local implementations is given in:
 - Local_DHT_testing.ipynb
 
 All plotting functions are in the package Graphs.py for reproducing our Chord visualization and result plots.
