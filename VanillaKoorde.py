@@ -111,11 +111,29 @@ class Koorde_Node():
         return
 
     def update_others(self):
+        '''
+        # Another way to do update_others():
+        
         key = ((self.ID + 1) >> 1) % self.q
         #if (key << 1)% self.q == self.predecessor.ID + 1:
         other_node = self.find_succ(key)
         other_node.next = self
+        '''
+        temp = self.successor
+        while temp != self:
+          if (temp.ID << 1)% self.q > self.ID and self.compare_mod(self.ID, temp.next.ID):
+            temp.next = self
+          temp = temp.successor
         return
+
+    def compare_mod(self,x,y):
+      if x == y:
+        return True
+      else:
+        diff = self.q - x
+        x = x + diff
+        y = y + diff
+        return x > y
 
 def print_info(node):
     print(f'Finger table of {node.ID}:')
